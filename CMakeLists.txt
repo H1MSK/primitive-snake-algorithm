@@ -13,9 +13,9 @@ find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core Gui)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Gui)
 
 add_executable(AutoSnakeQt
-  main.cpp
-  find_path.cpp
-  common.hpp
+  src/main.cpp
+  src/find_path.cpp
+  include/common.hpp
 )
 target_link_libraries(AutoSnakeQt Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Gui)
 
