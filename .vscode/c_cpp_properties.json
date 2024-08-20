@@ -1,0 +1,26 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "C:/Qt/6.5.3/msvc2019_64/include",
+                "C:/Qt/6.5.3/msvc2019_64/include/QtGui",
+                "C:/Qt/6.5.3/msvc2019_64/include/QtCore"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE",
+                "STATIC_TYPE_DEBUG",
+                "__cplusplus=202002L"
+            ],
+            "windowsSdkVersion": "10.0.22000.0",
+            "compilerPath": "cl.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++23",
+            "intelliSenseMode": "windows-msvc-x64"
+        }
+    ],
+    "version": 4
+}

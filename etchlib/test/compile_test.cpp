@@ -1,33 +1,41 @@
 #include <ranges>
-#include "../graph/AStar.hpp"
+#include "../graph/path/a_star.hpp"
 
-template<etch::graph::nodes_iterable Graph>
-void test(Graph graph) {}
+template<etch::graph::edges_weighted Graph>
+void test(Graph graph) {
+}
 
 #include <array>
 class SimpleRing {
 public:
+  struct edge {
+    int p;
+    int from() const {return p; }
+    int to() const {return (p + 1) % 10; }
+    int weight() const { return 1; }
+  };
+
   using node_type = int;
-  using edge_type = std::pair<int, int>;
+  using edge_type = edge;
 
   void test() {
-    auto t = std::views::iota(0, 10);
-    auto &tt = t;
-    auto l = std::ranges::begin(tt);
-    auto r = std::ranges::end(tt);
     ::test(*this);
   }
   std::ranges::iota_view<int, int> nodes() const { return std::views::iota(0, 10); }
 
   auto edges() const {
     return std::views::iota(0, 10) |
-           std::views::transform([](int x) { return std::pair(x, (x + 1) % 10); });
+           std::views::transform([](int x) { return edge(x); });
   }
 
   auto neighbors(int x) const {
     return std::array<int, 2>{ (x + 9) % 10, (x + 1) % 10 };
   }
   auto dis(int a, int b) {
-    return etch::graph::path_finding::a_star::AStar<SimpleRing>(*this, a, b);
+    return etch::graph::path::AStar<SimpleRing>(*this, a, b,
+      [](int a, int b) { return abs(a - b); });
   }
 };
+
+int main() {
+}

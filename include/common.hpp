@@ -1,5 +1,4 @@
-#ifndef COMMON_HPP
-#define COMMON_HPP
+#pragma once
 
 #include <cstdint>
 
@@ -30,5 +29,3 @@ extern QList<QPoint> path;
 extern QPoint food_pos, head_pos;
 
 void findPath();
-
-#endif // COMMON_HPP
