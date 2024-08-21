@@ -13,7 +13,20 @@ class Snake {
 
     container_type body;
 
+    Snake(int map_w, int map_h) : body({QPoint(map_w / 2, map_h / 2 + 1)}) {}
+
  public:
+    Snake(const Snake& o) = default;
+    Snake(Snake&& o) = default;
+
+    static Snake initialSnake(int map_w, int map_h) {
+        Snake s(map_w, map_h);
+        s.move(RIGHT, true);
+        return s;
+    }
+
+    size_t length() const { return body.size(); }
+
     void move(DIRECTION dir, bool keep_tail) {
         QPoint p = head();
         if (!keep_tail)
@@ -32,6 +45,6 @@ class Snake {
     container_type::iterator begin() { return body.begin(); }
     container_type::iterator end() { return body.end(); }
 
-    const QPoint& head() { return body.front(); }
-    const QPoint& tail() { return body.back(); }
+    const QPoint& head() const { return body.front(); }
+    const QPoint& tail() const { return body.back(); }
 };

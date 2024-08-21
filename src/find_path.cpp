@@ -1,8 +1,9 @@
 #include <QList>
 #include <QPoint>
 #include <array>
-#include <functional>
+#include <concepts>
 #include "common.hpp"
+#include "map.hpp"
 
 struct State {
   int penalty;
@@ -12,13 +13,13 @@ struct State {
   State() = default;
   constexpr State(const State&) = default;
   constexpr State(State&&) = default;
-  constexpr State& operator=(const State &) = default;
+  constexpr State& operator=(const State&) = default;
   constexpr State(int distance,
                   int step,
                   QPoint pos,
                   bool reverse,
-                  int direction_penalty)
-      : penalty((step + distance) * 4 + direction_penalty),
+                  int position_penalty)
+      : penalty((step + distance) * 4 + position_penalty),
         step(step),
         pos(pos),
         reverse(reverse) {}
@@ -35,32 +36,11 @@ struct MapState {
   DIRECTION bw_from;
 } map_state[MAP_H][MAP_W];
 
-static void prependToPath(QPoint pos) {
-  path.push_front(pos);
-  map_str[pos.y() + 1][pos.x() + 1] = '%';
-}
-
-static void appendToPath(QPoint pos) {
-  path.push_back(pos);
-  map_str[pos.y() + 1][pos.x() + 1] = '%';
-}
-
-static void clearPath() {
-  while (path.length()) {
-    QPoint& pos = path.front();
-    map_str[pos.y() + 1][pos.x() + 1] = CH_LUT[map[pos.y()][pos.x()]];
-    path.pop_front();
-  }
-}
-
-static void fixHeadAndFood() {
-  map_str[food_pos.y() + 1][food_pos.x() + 1] = 'O';
-  map_str[head_pos.y() + 1][head_pos.x() + 1] = 'S';
-}
-
-static void generatePath(State s) {
+static QList<DIRECTION> generatePath(State s,
+                                     const QPoint& from,
+                                     const QPoint& to) {
+  QList<DIRECTION> path;
   QPoint pos = s.pos;
-  appendToPath(pos);
   constexpr static QPoint rev_dir[] = {
       QPoint(0, 0),   // UNKNOWN
       QPoint(0, -1),  // UP
@@ -68,53 +48,56 @@ static void generatePath(State s) {
       QPoint(1, 0),   // RIGHT
       QPoint(0, 1)    // DOWN
   };
-  while (pos != head_pos) {
+  while (pos != from) {
     auto& ms = map_state[pos.y()][pos.x()];
     Q_ASSERT(ms.fw_from >= UP && ms.fw_from <= DOWN);
     pos += rev_dir[ms.fw_from];
-    prependToPath(pos);
+    path.push_front(DIRECTION(5 - ms.fw_from));
   }
   pos = s.pos;
-  while (pos != food_pos) {
+  while (pos != to) {
     auto& ms = map_state[pos.y()][pos.x()];
     Q_ASSERT(ms.bw_from >= UP && ms.bw_from <= DOWN);
     pos += rev_dir[ms.bw_from];
-    appendToPath(pos);
+    path.push_back(ms.bw_from);
   }
+  return path;
 }
 
-void printPath() {
-  for (int r = 0; r <= MAP_H + 1; ++r)
-    qInfo("%s", map_str[r]);
-}
+int search_count;
+template <std::invocable<const QPoint&> GridPenaltyFunc>
+static QList<DIRECTION> findPath(const PrintableMap<MAP_W, MAP_H>& map,
+                                 const QPoint& from,
+                                 const QPoint& to,
+                                 GridPenaltyFunc penalty) {
+  constexpr static struct {
+    QPoint delta;
+    DIRECTION from;
+  } deltas[] = {{QPoint(-1, 0), RIGHT},
+                {QPoint(0, -1), DOWN},
+                {QPoint(1, 0), LEFT},
+                {QPoint(0, 1), UP}};
 
-void findPath() {
   int heap_size = 2;
-  int initial_dis = (head_pos - food_pos).manhattanLength();
+  int initial_dis = (from - to).manhattanLength();
   bool found = false;
-  int search_count = 0;
   if (initial_dis == 1) {
-    clearPath();
-    appendToPath(head_pos);
-    appendToPath(food_pos);
-    found = true;
-    search_count = 0;
+    QPoint d = to - from;
+    search_count = 1;
+    for (auto p : deltas) {
+      if (d == p.delta)
+        return {p.from};
+    }
+    Q_ASSERT(false);
+    return {};
   } else {
-    heap_mem[0] = State{initial_dis, 0, head_pos, false, 0};
-    heap_mem[1] = State{initial_dis, 0, food_pos, true, 0};
+    heap_mem[0] = State(initial_dis, 0, from, false, 0);
+    heap_mem[1] = State(initial_dis, 0, to, true, 0);
     std::make_heap(heap_mem, heap_mem + heap_size);
     memset(map_state, 0, sizeof(map_state));
-    // map_state[head_pos.y()][head_pos.x()].fw_from = direction;
-    // map_state[food_pos.y()][food_pos.x()].bw_from = direction;
+    // map_state[from.y()][from.x()].fw_from = direction;
+    // map_state[to.y()][to.x()].bw_from = direction;
     State s;
-    constexpr static uint8_t penalty_map[5][5] = {
-        //  U  L  R  D = next
-        {0, 0, 0, 0, 0},  // cur=UNKNOWN
-        {0, 0, 1, 1, 2},  // cur=UP
-        {0, 1, 0, 2, 1},  // cur=LEFT
-        {0, 1, 2, 0, 1},  // cur=RIGHT
-        {0, 2, 1, 1, 0},  // cur=DOWN
-    };
     while (heap_size != 0) {
       ++search_count;
       std::pop_heap(heap_mem, heap_mem + heap_size);
@@ -126,43 +109,59 @@ void findPath() {
         found = true;
         break;
       }
-
-      constexpr static struct {
-        QPoint delta;
-        DIRECTION from;
-      } deltas[] = {{QPoint(-1, 0), RIGHT},
-                    {QPoint(0, -1), DOWN},
-                    {QPoint(1, 0), LEFT},
-                    {QPoint(0, 1), UP}};
       DIRECTION& cur_from = (s.reverse ? ms.bw_from : ms.fw_from);
-      // qInfo("%d, %d, %d, (%d, %d)", s.reverse, s.penalty, s.step, s.pos.x(), s.pos.y());
-      constexpr static uint8_t iterate_start[] = {0, 3, 2, 0, 1};
+      // qInfo("%d, %d, %d, (%d, %d)", s.reverse, s.penalty, s.step, s.pos.x(),
+      // s.pos.y());
       for (int i = 0; i < 4; ++i) {
-        auto& delta = deltas[(iterate_start[cur_from] + i) & 3];
+        auto& delta = deltas[i];
         QPoint new_p = s.pos + delta.delta;
-        if (new_p.y() < 0 || new_p.y() >= MAP_H ||
-            new_p.x() < 0 || new_p.x() >= MAP_W ||
-            map[new_p.y()][new_p.x()] == TYPE_SNAKE)
+        if (new_p.y() < 0 || new_p.y() >= MAP_H || new_p.x() < 0 ||
+            new_p.x() >= MAP_W || map.at(new_p) != 0)
           continue;
         auto& nms = map_state[new_p.y()][new_p.x()];
-        DIRECTION& from = (s.reverse ? nms.bw_from : nms.fw_from);
-        if (from != UNKNOWN)
+        DIRECTION& pos_from = (s.reverse ? nms.bw_from : nms.fw_from);
+        if (pos_from != UNKNOWN)
           continue;
-        from = delta.from;
+        pos_from = delta.from;
         heap_mem[heap_size] =
-            State{(new_p - (s.reverse ? head_pos : food_pos)).manhattanLength(),
-                  s.step + 1,
-                  new_p,
-                  s.reverse,penalty_map[cur_from][from]};
+            State((new_p - (s.reverse ? from : to)).manhattanLength(),
+                  s.step + 1, new_p, s.reverse, penalty(new_p));
         ++heap_size;
         std::push_heap(heap_mem, heap_mem + heap_size);
       }
     }
-    clearPath();
     if (found)
-      generatePath(s);
+      return generatePath(s, from, to);
+    else
+      return {};
   }
-  fixHeadAndFood();
-  qInfo("Operations: %d, path len: %d", search_count, found ? path.size() : -1);
-  printPath();
+}
+
+QList<DIRECTION> findPath(PrintableMap<MAP_W, MAP_H>& map) {
+  search_count = 0;
+  QList<DIRECTION> rescue_path =
+      findPath(map, map.food_pos(), map.snake().tail(), [&](const QPoint& p) {
+        return -(map.snake().head() - p).manhattanLength();
+      });
+  if (rescue_path.empty())
+    qWarning() << "No rescue path found!";
+  map.reserveRescuePath(rescue_path);
+  QList<DIRECTION> target_path =
+      findPath(map, map.snake().head(), map.food_pos(), [&](const QPoint& p) {
+        return -(map.snake().tail() - p).manhattanLength();
+      });
+  if (target_path.empty()) {
+    qInfo() << "Unable to safely direct. Try chase tail.";
+    target_path = findPath(map, map.snake().head(), map.snake().tail(),
+                           [&](const QPoint& p) {
+                             return (map.food_pos() - p).manhattanLength();
+                           });
+  }
+
+  qInfo("Operations: %d, path len: %d", search_count, target_path.size());
+  map.reserveTargetPath(target_path);
+  map.print_map();
+  map.clearTargetPath(target_path);
+  map.clearRescuePath(rescue_path);
+  return target_path;
 }

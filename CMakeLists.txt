@@ -15,8 +15,13 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Gui)
 add_executable(AutoSnakeQt
   src/main.cpp
   src/find_path.cpp
+  src/io.cpp
+  src/visual.cpp
   include/common.hpp
+  include/map.hpp
+  include/snake.hpp
 )
+include_directories(include)
 target_link_libraries(AutoSnakeQt Qt${QT_VERSION_MAJOR}::Core Qt${QT_VERSION_MAJOR}::Gui)
 
 include(GNUInstallDirs)

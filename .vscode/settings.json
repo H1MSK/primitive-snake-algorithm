@@ -77,6 +77,10 @@
         "xmemory": "cpp",
         "xstring": "cpp",
         "xtree": "cpp",
-        "set": "cpp"
+        "set": "cpp",
+        "qguiapplication": "cpp",
+        "qpixmap": "cpp",
+        "qscreen": "cpp",
+        "qimage": "cpp"
     }
 }
